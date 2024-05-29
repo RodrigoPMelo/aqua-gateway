@@ -1,0 +1,22 @@
+{
+  "name": "aqua-gateway",
+  "version": "1.0.0",
+  "description": "A gateway that behaves like a server to my flutter interface and a client that recieves data from a MQTT broker",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/RodrigoPMelo/aqua-gateway.git"
+  },
+  "author": "Rodrigo Pompermayer de Melo",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/RodrigoPMelo/aqua-gateway/issues"
+  },
+  "homepage": "https://github.com/RodrigoPMelo/aqua-gateway#readme",
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
