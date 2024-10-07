@@ -11,7 +11,7 @@ RUN go mod download
 COPY . .
 
 # Build the Go app
-RUN go build -o /aqua-gateway
+RUN CGO_ENABLED=0 GOOS=linux go build -o /aqua-gateway
 
 # Stage 2: Create a minimal image to run the Go application
 FROM alpine:latest
