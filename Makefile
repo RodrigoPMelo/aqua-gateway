@@ -16,6 +16,6 @@ docker-build:
 
 # Deploy to Railway using Railway CLI
 deploy: docker-build
-	railway up --project $(RAILWAY_PROJECT_ID) --env $(RAILWAY_ENVIRONMENT)
+	railway up -s $(RAILWAY_PROJECT_ID) -e $(RAILWAY_ENVIRONMENT)
 
 .PHONY: all build test docker-build deploy
