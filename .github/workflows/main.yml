@@ -1,0 +1,54 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Checkout the repository
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    # Set up Go environment
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.22'
+
+    # Cache Go modules
+    - name: Cache Go modules
+      uses: actions/cache@v3
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    # Set up Docker
+    - name: Set up Docker
+      uses: docker/setup-buildx-action@v2
+
+    # Build Docker image
+    - name: Build Docker image
+      run: make docker-build
+
+    # Install Railway CLI
+    - name: Install Railway CLI
+      run: curl -fsSL https://railway.app/install.sh | sh
+
+    # Authenticate Railway CLI using Railway token
+    - name: Authenticate Railway CLI
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      run: railway login --token $RAILWAY_TOKEN
+
+    # Deploy to Railway
+    - name: Deploy to Railway
+      run: make deploy
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
