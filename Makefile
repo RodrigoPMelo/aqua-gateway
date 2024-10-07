@@ -1,7 +1,7 @@
 # Variables
 DOCKER_IMAGE_NAME=aqua-gateway
 RAILWAY_PROJECT_ID=0afa8246-fb4a-4981-9ef3-6c72b6e328dd
-RAILWAY_ENVIRONMENT=production
+RAILWAY_ENVIRONMENT=8b7d1bfc-ee25-42a8-8e03-21fccc7f7191
 
 # Default target
 all: build
