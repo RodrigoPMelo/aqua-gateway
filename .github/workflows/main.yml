@@ -39,10 +39,8 @@ jobs:
 
     # Ensure Docker volume for data is available
     - name: Bind volume for data
-      run: |
-        docker volume create data-volume
-        docker run -v data-volume:/data aqua-gateway
-
+      run: docker volume create data-volume
+        
     # Install Railway CLI
     - name: Install Railway CLI
       run: curl -fsSL https://railway.app/install.sh | sh
