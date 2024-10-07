@@ -16,6 +16,6 @@ docker-build:
 
 # Deploy to Railway using Railway CLI
 deploy: docker-build
-	RAILWAY_TOKEN=$(RAILWAY_TOKEN) railway run -s $(RAILWAY_SERVICE_ID)
+	RAILWAY_TOKEN=$(RAILWAY_TOKEN) railway run ./aqua-gateway -s $(RAILWAY_SERVICE_ID)
 
 .PHONY: all build test docker-build deploy
