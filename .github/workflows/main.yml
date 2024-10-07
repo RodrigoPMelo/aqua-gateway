@@ -37,6 +37,12 @@ jobs:
     - name: Build Docker image
       run: make docker-build
 
+    # Ensure Docker volume for data is available
+    - name: Bind volume for data
+      run: |
+        docker volume create data-volume
+        docker run -v ./data:/data
+
     # Install Railway CLI
     - name: Install Railway CLI
       run: curl -fsSL https://railway.app/install.sh | sh
