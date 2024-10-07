@@ -11,7 +11,7 @@ RUN go mod download
 COPY . .
 
 # Build the application (using the cmd/api directory)
-RUN go build -o /aqua-gateway ./cmd/api
+RUN go build -o /aqua-gateway ./cmd/api/main.go
 
 # Stage 2: Create a minimal image to run the Go application
 FROM alpine:latest
