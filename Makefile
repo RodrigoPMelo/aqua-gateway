@@ -16,6 +16,6 @@ docker-build:
 
 # Deploy to Railway using Railway CLI
 deploy: docker-build
-	RAILWAY_TOKEN=$(RAILWAY_TOKEN) railway up --service $(RAILWAY_SERVICE_ID)
+	RAILWAY_TOKEN=$(RAILWAY_TOKEN) railway up --environment $(RAILWAY_ENVIRONMENT) --service $(RAILWAY_SERVICE_ID)
 
 .PHONY: all build test docker-build deploy
