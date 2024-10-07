@@ -41,7 +41,7 @@ jobs:
     - name: Bind volume for data
       run: |
         docker volume create data-volume
-        docker run -v ./data:/data
+        docker run -v data-volume:/data aqua-gateway
 
     # Install Railway CLI
     - name: Install Railway CLI
