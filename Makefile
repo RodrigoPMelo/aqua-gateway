@@ -8,7 +8,7 @@ all: build
 
 # Build the Go app
 build:
-	go build -o ./bin/my-go-app main.go
+	go build -o ./bin/aqua-gateway ./cmd/api/main.go
 
 # Docker build
 docker-build:
