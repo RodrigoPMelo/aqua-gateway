@@ -6,6 +6,7 @@ require (
 	cloud.google.com/go/firestore v1.17.0
 	firebase.google.com/go v3.13.0+incompatible
 	github.com/eclipse/paho.mqtt.golang v1.5.0
+	github.com/joho/godotenv v1.5.1
 	google.golang.org/api v0.196.0
 )
 

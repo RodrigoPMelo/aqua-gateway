@@ -13,6 +13,7 @@ import (
 	"cloud.google.com/go/firestore"
 	"firebase.google.com/go"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/joho/godotenv"
 	"google.golang.org/api/option"
 )
 
@@ -53,11 +54,12 @@ func addToBuffer(data SensorData) {
 	log.Printf("Added data to buffer for device %s: %v", deviceID, data)
 }
 
-func saveBufferToFile() {
+func saveToFile() {
+	dataPath := os.Getenv("DATA_PATH")
 	dataMutex.Lock()
 	defer dataMutex.Unlock()
 
-	fileName := fmt.Sprintf("/data/sensor_data_%s.json", time.Now().Format("2006-01-02"))
+	fileName := fmt.Sprintf(dataPath + "/sensor_data_%s.json", time.Now().Format("2006-01-02"))
 	fileData, err := json.Marshal(dataBuffer)
 	if err != nil {
 		log.Printf("Error marshaling buffer data to JSON: %v", err)
@@ -72,7 +74,8 @@ func saveBufferToFile() {
 }
 
 func uploadToFirebase() {
-	entries, err := os.ReadDir("/data/")
+	dataPath := os.Getenv("DATA_PATH")
+	entries, err := os.ReadDir(dataPath + "/")
 	if err != nil {
 		log.Printf("Error reading directory /data/: %v", err)
 		return
@@ -93,7 +96,7 @@ func uploadToFirebase() {
 
 	for _, file := range infos {
 		if !file.IsDir() {
-			filePath := "/data/" + file.Name()
+			filePath := dataPath + "/" + file.Name()
 
 			data, err := os.ReadFile(filePath)
 			if err != nil {
@@ -129,14 +132,11 @@ func uploadToFirebase() {
 }
 
 func messageHandler(client mqtt.Client, msg mqtt.Message) {
+	log.Printf("Message %v beign handled", string(msg.Payload()))
 	topic := msg.Topic()
 	deviceID := topic[len("aqua/devices/") : len(topic)-len("/sensors")]
 
-	var payload string
-	if err := json.Unmarshal(msg.Payload(), &payload); err != nil {
-		log.Printf("Error parsing payload from topic %s: %v", topic, err)
-		return
-	}
+	payload := string(msg.Payload())
 
 	data := SensorData{
 		DeviceID:  deviceID,
@@ -144,41 +144,64 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 		Timestamp: time.Now(),
 	}
 	addToBuffer(data)
+	saveToFile()
 }
 
 func subscribeToMQTT() {
-	opts := mqtt.NewClientOptions().AddBroker("mqtt://test.mosquitto.org:1883").SetClientID("mqtt-subscriber")
+
+	opts := mqtt.NewClientOptions().
+		AddBroker("mqtt://test.mosquitto.org:1883").
+		SetClientID("mqtt-subscriber").
+		SetKeepAlive(60 * time.Second).            // Keep the connection alive every 60 seconds
+		SetPingTimeout(10 * time.Second).          // Set a ping timeout for the server to respond
+		SetAutoReconnect(true).                    // Enable auto-reconnect on failure
+		SetMaxReconnectInterval(30 * time.Second). // Maximum interval for reconnecting attempts
+		SetConnectionLostHandler(func(client mqtt.Client, err error) {
+			log.Printf("MQTT connection lost: %v", err)
+		}).
+		SetOnConnectHandler(func(client mqtt.Client) {
+			log.Println("MQTT reconnected successfully")
+		})
+
+	// Create a new MQTT client
 	client := mqtt.NewClient(opts)
+
+	// Try to connect to the MQTT broker
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		log.Printf("Error connecting to MQTT: %v", token.Error())
 		return
 	}
-	log.Println("Connected to MQTT broker.")
 
+	// Subscribe to the topic once connected
 	topic := "aqua/devices/+/sensors/database"
 	if token := client.Subscribe(topic, 1, messageHandler); token.Wait() && token.Error() != nil {
-		log.Printf("Error subscribing to topic %s: %v", topic, token.Error())
+		log.Printf("Error subscribing to topic: %v", token.Error())
 		return
 	}
-	log.Printf("Subscribed to topic: %s", topic)
+
+	log.Println("Subscribed to MQTT topic:", topic)
+
 }
 
 func scheduleDailyUpload() {
 	for {
 		now := time.Now()
-		nextUpload := time.Date(now.Year(), now.Month(), now.Day(), 23, 0, 0, 0, now.Location())
+		nextUpload := time.Date(now.Year(), now.Month(), now.Day(), 23, 19, 0, 0, now.Location())
 		if now.After(nextUpload) {
 			nextUpload = nextUpload.Add(24 * time.Hour)
 		}
 		time.Sleep(time.Until(nextUpload))
 
 		log.Println("Scheduled upload triggered.")
-		saveBufferToFile()
 		uploadToFirebase()
 	}
 }
 
 func main() {
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Println(err)
+	}
 	log.Println("Starting Aqua Gateway...")
 	initFirebase()
 	go subscribeToMQTT()
