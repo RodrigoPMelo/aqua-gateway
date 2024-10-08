@@ -134,7 +134,7 @@ func uploadToFirebase() {
 func messageHandler(client mqtt.Client, msg mqtt.Message) {
 	log.Printf("Message %v beign handled", string(msg.Payload()))
 	topic := msg.Topic()
-	deviceID := topic[len("aqua/devices/") : len(topic)-len("/sensors")]
+	deviceID := topic[len("aqua/devices/") : len(topic)-len("/sensors/database")]
 
 	payload := string(msg.Payload())
 
