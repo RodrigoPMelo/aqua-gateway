@@ -10,6 +10,8 @@ RUN go mod download
 # Copy the source code
 COPY . .
 
+RUN ls -l /root/
+
 # Build the Go app
 RUN CGO_ENABLED=0 GOOS=linux go build -o /aqua-gateway
 
