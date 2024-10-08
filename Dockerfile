@@ -23,7 +23,7 @@ WORKDIR /root
 # Install ca-certificates to enable HTTPS for Firebase
 RUN apk add --no-cache ca-certificates
 
-COPY --from=builder --chown=nonroot:nonroot /uploads /
+COPY --from=builder --chown=nonroot:nonroot /data /
 
 # Copy the Go app from the builder stage
 COPY --from=builder /aqua-gateway .
