@@ -10,8 +10,6 @@ RUN go mod download
 # Copy the source code
 COPY . .
 
-RUN ls -l /root/
-
 # Build the Go app
 RUN CGO_ENABLED=0 GOOS=linux go build -o /aqua-gateway
 
@@ -25,6 +23,8 @@ RUN apk add --no-cache ca-certificates
 
 # Copy the Go app from the builder stage
 COPY --from=builder /aqua-gateway .
+
+RUN ls -l /root/
 
 # Run the Go app
 CMD ["./aqua-gateway"]
