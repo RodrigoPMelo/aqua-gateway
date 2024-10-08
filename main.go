@@ -152,7 +152,7 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 }
 
 func subscribeToMQTT() {
-	opts := mqtt.NewClientOptions().AddBroker("tcp://mqtt-broker:1883").SetClientID("mqtt-subscriber")
+	opts := mqtt.NewClientOptions().AddBroker("mqtt://test.mosquitto.org:1883").SetClientID("mqtt-subscriber")
 	client := mqtt.NewClient(opts)
 	if token := client.Connect(); token.Wait() && token.Error() != nil {
 		log.Fatalf("Error connecting to MQTT: %v", token.Error())
