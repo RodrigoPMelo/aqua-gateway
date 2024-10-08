@@ -16,15 +16,14 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /aqua-gateway
 # Stage 2: Create a minimal image to run the Go application
 FROM alpine:latest
 
-WORKDIR /root/
+WORKDIR /root
 
 # Install ca-certificates to enable HTTPS for Firebase
 RUN apk add --no-cache ca-certificates
 
 # Copy the Go app from the builder stage
 COPY --from=builder /aqua-gateway .
-
-RUN ls -l /root/
+COPY firebase_service_account.json /root/firebase_service_account.json
 
 # Run the Go app
 CMD ["./aqua-gateway"]
