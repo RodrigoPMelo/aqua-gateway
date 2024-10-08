@@ -155,7 +155,7 @@ func subscribeToMQTT() {
 	}
 	log.Println("Connected to MQTT broker.")
 
-	topic := "aqua/devices/+/sensors"
+	topic := "aqua/devices/+/sensors/database"
 	if token := client.Subscribe(topic, 1, messageHandler); token.Wait() && token.Error() != nil {
 		log.Printf("Error subscribing to topic %s: %v", topic, token.Error())
 		return
