@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/fs"
 	"log"
 	"os"
+	"regexp"
+	"strconv"
 	"sync"
 	"time"
 
@@ -16,6 +17,13 @@ import (
 	"github.com/joho/godotenv"
 	"google.golang.org/api/option"
 )
+
+type AggregatedData struct {
+	AverageTemperature float64   `json:"average_temperature"`
+	AverageTurbidity   float64   `json:"average_turbidity"`
+	DeviceID           string    `json:"device_id"`
+	Date               time.Time `json:"date"`
+}
 
 type SensorData struct {
 	DeviceID  string    `json:"device_id"`
@@ -59,7 +67,7 @@ func saveToFile() {
 	dataMutex.Lock()
 	defer dataMutex.Unlock()
 
-	fileName := fmt.Sprintf(dataPath + "/sensor_data_%s.json", time.Now().Format("2006-01-02"))
+	fileName := fmt.Sprintf(dataPath+"/sensor_data_%s.json", time.Now().Format("2006-01-02"))
 	fileData, err := json.Marshal(dataBuffer)
 	if err != nil {
 		log.Printf("Error marshaling buffer data to JSON: %v", err)
@@ -73,62 +81,103 @@ func saveToFile() {
 	log.Printf("Saved buffer data to file: %s", fileName)
 }
 
-func uploadToFirebase() {
+func processAndUploadDataToFirebase() {
 	dataPath := os.Getenv("DATA_PATH")
-	entries, err := os.ReadDir(dataPath + "/")
-	if err != nil {
-		log.Printf("Error reading directory /data/: %v", err)
+	fileName := fmt.Sprintf("%s/sensor_data_%s.json", dataPath, time.Now().Format("2006-01-02"))
+
+	// Verifica se o arquivo do dia existe
+	if _, err := os.Stat(fileName); os.IsNotExist(err) {
+		log.Printf("No data file found for today: %s", fileName)
 		return
 	}
 
-	infos := make([]fs.FileInfo, 0, len(entries))
-	for _, entry := range entries {
-		info, err := entry.Info()
-		if err != nil {
-			log.Printf("Error getting file info: %v", err)
-			continue
-		}
-		infos = append(infos, info)
+	data, err := os.ReadFile(fileName)
+	if err != nil {
+		log.Printf("Error reading file %s: %v", fileName, err)
+		return
 	}
 
+	var sensorData map[string][]SensorData
+	if err := json.Unmarshal(data, &sensorData); err != nil {
+		log.Printf("Error unmarshaling JSON for file %s: %v", fileName, err)
+		return
+	}
+
+	// Preparação para agregar os dados
+	aggregatedData := make(map[string]*AggregatedData)
+
+	// Itera sobre os dados para calcular as médias
+	for deviceID, records := range sensorData {
+		var totalTemperature, totalTurbidity float64
+		var count int
+
+		for _, record := range records {
+			turbidez, temperature, err := parseData(record.Data)
+			if err != nil {
+				log.Printf("Error parsing record data: %v", err)
+				continue
+			}
+
+			totalTemperature += temperature
+			totalTurbidity += turbidez
+			count++
+		}
+
+		if count > 0 {
+			averageTemperature := totalTemperature / float64(count)
+			averageTurbidity := totalTurbidity / float64(count)
+
+			aggregatedData[deviceID] = &AggregatedData{
+				AverageTemperature: averageTemperature,
+				AverageTurbidity:   averageTurbidity,
+				DeviceID:           deviceID,
+				Date:               time.Now(),
+			}
+		}
+	}
+
+	// Upload dos dados agregados ao Firebase
 	ctx := context.Background()
 	batch := client.BulkWriter(ctx)
 
-	for _, file := range infos {
-		if !file.IsDir() {
-			filePath := dataPath + "/" + file.Name()
-
-			data, err := os.ReadFile(filePath)
-			if err != nil {
-				log.Printf("Error reading file %s: %v", file.Name(), err)
-				continue
-			}
-
-			var sensorData map[string][]SensorData
-			if err := json.Unmarshal(data, &sensorData); err != nil {
-				log.Printf("Error unmarshaling JSON for file %s: %v", file.Name(), err)
-				continue
-			}
-
-			for deviceID, records := range sensorData {
-				for _, record := range records {
-					docID := fmt.Sprintf("%s_%s", deviceID, record.Timestamp.Format(time.RFC3339))
-					doc := client.Collection("sensor_data").Doc(docID)
-					batch.Set(doc, record)
-					log.Printf("Added document to batch: %s with data: %v", docID, record)
-				}
-			}
-
-			if err := os.Remove(filePath); err != nil {
-				log.Printf("Error deleting file %s: %v", file.Name(), err)
-			} else {
-				log.Printf("Deleted file after upload: %s", file.Name())
-			}
-		}
+	for deviceID, aggData := range aggregatedData {
+		docID := fmt.Sprintf("%s_%s", deviceID, aggData.Date.Format("2006-01-02"))
+		doc := client.Collection("sensor_data_aggregated").Doc(docID)
+		batch.Set(doc, aggData)
+		log.Printf("Added aggregated document to batch: %s with data: %v", docID, aggData)
 	}
 
 	batch.End()
 
+	// Remove o arquivo após upload
+	if err := os.Remove(fileName); err != nil {
+		log.Printf("Error deleting file %s: %v", fileName, err)
+	} else {
+		log.Printf("Deleted file after upload: %s", fileName)
+	}
+}
+
+
+func parseData(data string) (float64, float64, error) {
+	// Regex para capturar os valores de turbidez e temperatura
+	re := regexp.MustCompile(`turbidez: ([\d.]+), temperature: ([\d.]+)`)
+	matches := re.FindStringSubmatch(data)
+
+	if len(matches) < 3 {
+		return 0, 0, fmt.Errorf("could not parse data: %s", data)
+	}
+
+	turbidez, err := strconv.ParseFloat(matches[1], 64)
+	if err != nil {
+		return 0, 0, fmt.Errorf("error parsing turbidez: %v", err)
+	}
+
+	temperature, err := strconv.ParseFloat(matches[2], 64)
+	if err != nil {
+		return 0, 0, fmt.Errorf("error parsing temperature: %v", err)
+	}
+
+	return turbidez, temperature, nil
 }
 
 func messageHandler(client mqtt.Client, msg mqtt.Message) {
@@ -186,14 +235,14 @@ func subscribeToMQTT() {
 func scheduleDailyUpload() {
 	for {
 		now := time.Now()
-		nextUpload := time.Date(now.Year(), now.Month(), now.Day(), 23, 19, 0, 0, now.Location())
+		nextUpload := time.Date(now.Year(), now.Month(), now.Day(), 23, 30, 0, 0, now.Location())
 		if now.After(nextUpload) {
 			nextUpload = nextUpload.Add(24 * time.Hour)
 		}
 		time.Sleep(time.Until(nextUpload))
 
 		log.Println("Scheduled upload triggered.")
-		uploadToFirebase()
+		processAndUploadDataToFirebase()
 	}
 }
 
