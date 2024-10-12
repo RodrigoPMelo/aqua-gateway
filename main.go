@@ -157,7 +157,6 @@ func processAndUploadDataToFirebase() {
 	}
 }
 
-
 func parseData(data string) (float64, float64, error) {
 	// Regex para capturar os valores de turbidez e temperatura
 	re := regexp.MustCompile(`turbidez: ([\d.]+), temperature: ([\d.]+)`)
@@ -209,7 +208,11 @@ func subscribeToMQTT() {
 			log.Printf("MQTT connection lost: %v", err)
 		}).
 		SetOnConnectHandler(func(client mqtt.Client) {
-			log.Println("MQTT reconnected successfully")
+			log.Println("Reconnected and resubscribing...")
+			topic := "aqua/devices/+/sensors/database"
+			if token := client.Subscribe(topic, 1, messageHandler); token.Wait() && token.Error() != nil {
+				log.Printf("Failed to resubscribe: %v", token.Error())
+			}
 		})
 
 	// Create a new MQTT client
@@ -221,14 +224,14 @@ func subscribeToMQTT() {
 		return
 	}
 
-	// Subscribe to the topic once connected
-	topic := "aqua/devices/+/sensors/database"
-	if token := client.Subscribe(topic, 1, messageHandler); token.Wait() && token.Error() != nil {
-		log.Printf("Error subscribing to topic: %v", token.Error())
-		return
-	}
+	// // Subscribe to the topic once connected
+	// topic := "aqua/devices/+/sensors/database"
+	// if token := client.Subscribe(topic, 1, messageHandler); token.Wait() && token.Error() != nil {
+	// 	log.Printf("Error subscribing to topic: %v", token.Error())
+	// 	return
+	// }
 
-	log.Println("Subscribed to MQTT topic:", topic)
+	//log.Println("Subscribed to MQTT topic:", topic)
 
 }
 
