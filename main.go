@@ -85,7 +85,6 @@ func processAndUploadDataToFirebase() {
 	dataPath := os.Getenv("DATA_PATH")
 	fileName := fmt.Sprintf("%s/sensor_data_%s.json", dataPath, time.Now().Format("2006-01-02"))
 
-	// Verifica se o arquivo do dia existe
 	if _, err := os.Stat(fileName); os.IsNotExist(err) {
 		log.Printf("No data file found for today: %s", fileName)
 		return
@@ -103,10 +102,9 @@ func processAndUploadDataToFirebase() {
 		return
 	}
 
-	// Preparação para agregar os dados
+	// Preparar os dados agregados
 	aggregatedData := make(map[string]*AggregatedData)
 
-	// Itera sobre os dados para calcular as médias
 	for deviceID, records := range sensorData {
 		var totalTemperature, totalTurbidity float64
 		var count int
@@ -136,20 +134,21 @@ func processAndUploadDataToFirebase() {
 		}
 	}
 
-	// Upload dos dados agregados ao Firebase
 	ctx := context.Background()
 	batch := client.BulkWriter(ctx)
 
 	for deviceID, aggData := range aggregatedData {
-		docID := fmt.Sprintf("%s_%s", deviceID, aggData.Date.Format("2006-01-02"))
-		doc := client.Collection("sensor_data_aggregated").Doc(docID)
+		// Criar subcoleção com base no DeviceID
+		docPath := fmt.Sprintf("sensor_data_aggregated/%s/data", deviceID)
+		docID := aggData.Date.Format("2006-01-02")
+		doc := client.Collection(docPath).Doc(docID)
+
 		batch.Set(doc, aggData)
-		log.Printf("Added aggregated document to batch: %s with data: %v", docID, aggData)
+		log.Printf("Added aggregated document to batch: %s/%s with data: %v", docPath, docID, aggData)
 	}
 
 	batch.End()
 
-	// Remove o arquivo após upload
 	if err := os.Remove(fileName); err != nil {
 		log.Printf("Error deleting file %s: %v", fileName, err)
 	} else {
